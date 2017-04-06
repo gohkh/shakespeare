@@ -52,7 +52,7 @@ for character in characters:
 main_characters.sort()
 minor_characters.sort()
 
-f=open('include/characters.wordlist','w+')
+f=open('../include/characters.wordlist','w+')
 for character in main_characters:
     f.write(character + '\n')
 f.write('\n')
