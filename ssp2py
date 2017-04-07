@@ -1,4 +1,4 @@
-import argparse
+import sys, argparse
 import roman
 
 TITLE = 'TITLE'
@@ -16,133 +16,177 @@ class Token(object):
 
 
 class Interpreter(object):
-    def __init__(self,file):
-        with open(file,'r') as text:
-            self.text = text.read()
-        self.pos = 0
+    def __init__(self, file, _input):
+        if file is None:
+            self.text = _input
+        else:
+            with open(file,'r') as text:
+                self.text = text.readlines()
+        self.line = 0
+        self.column = 0
         self.token = None
-        self.char = self.text[self.pos]
+        if len(self.text) == 0:
+            self.Line = None
+            self.Char = None
+        else:
+            self.Line = self.text[self.line].split('#',1)[0]
+            self.Char = self.Line[self.column]
 
 
     def ParseError(self):
-        raise Exception('Parsing error')
+        raise Exception('Unable to parse')
 
     def MissingTitleError(self):
         raise Exception('No title detected')
 
     def RomanNumeralError(self):
-        raise Exception('Invalid roman numeral')
+        raise Exception('Invalid roman numeral as ACT / SCENE number')
 
     def OrderError(self):
-        raise Exception('Act or scene numbers not in running order')
+        if self.eat.token_type == ACT:
+            raise Exception('SCENE before ACT')
+        elif self.eat.token_type == ACT_NUM:
+            raise Exception('ACT numbers not in running order')
+        elif self.eat.token_type == SCENE_NUM:
+            raise Exception('SCENE numbers not in running order')
 
 
-    def advance(self):
-        self.pos += 1
-        if self.pos >= len(self.text):
-            self.char = None
+    def advance_line(self):
+        self.line += 1
+        if self.line >= len(self.text):
+            self.Line = None
         else:
-            self.char = self.text[self.pos]
+            self.Line = self.text[self.line].split('#',1)[0]
+
+    def advance_char(self):
+        self.column += 1
+        if self.Line is not None and self.column >= len(self.text[self.line]) - 2:
+            self.Char = None
+        else:
+            self.Char = self.Line[self.column]
 
     def skip_whitespace(self):
-        while self.char is not None and self.char.isspace():
-            self.advance()
+        while self.Char is not None and self.Char.isspace():
+            self.advance_char()
+
 
     def title(self):
-        title = ''
-        while self.char != None and self.char != '\n':
-            title = title + self.char
-            self.advance()
+        title = self.Line
         title = title.strip()
-        if title != '':
-            return title
+        return title
 
     def act(self):
-        test = ''
-        for i in range(len(ACT)):
-            if self.char == ACT[i]:
-                self.advance()
-                test = test + self.char
-        if test == ACT:
-            return ACT
+        numeral = ''
+        if self.Line[0:3] == ACT:
+            for i in range(3):
+                self.advance_char()
+            self.skip_whitespace()
+            while self.Char is not None:
+                numeral = numeral + self.Char
+                self.advance_char()
+        return roman.roman(numeral)
 
     def scene(self):
-        test = ''
-        for i in range(len(SCENE)):
-            if self.char == SCENE[i]:
-                self.advance()
-                test = test + self.char
-        if test == ACT:
-            return SCENE
-
-    def roman(self):
         numeral = ''
-        while self.char != None and self.char != '.':
-            numeral = numeral + self.char
+        if self.Line[0:5] == SCENE:
+            for i in range(5):
+                self.advance_char()
+            self.skip_whitespace()
+            while self.Char is not None and self.Char != '.':
+                numeral = numeral + self.Char
+                self.advance_char()
         return roman.roman(numeral)
 
 
     def get_next_token(self):
 
-        while self.char is not None:
+        while self.Line is not None and self.Char is not None:
+            self.Line = self.Line.replace('\n','')
 
-            if self.pos == 0 and self.title() != None:
-                return(TITLE, self.title())
-
-            elif self.char.isspace():
-                self.skip_whitespace()
+            if self.Line.strip() == '':
+                self.advance_line()
                 continue
 
-            elif self.act() is not None:
-                return(ACT, self.act())
+            if self.Line[0:3] == ACT:
+                act = self.act()
+                if act is not None:
+                    token = Token(ACT, act)
+                    self.advance_line()
+                    return token
+                else:
+                    self.RomanNumeralError()
 
-            elif self.scene() is not None:
-                return(SCENE, self.scene())
+            if self.Line[0:5] == SCENE:
+                scene = self.scene()
+                if scene is not None:
+                    token = Token(SCENE, scene)
+                    self.advance_line()
+                    return token
+                else:
+                    self.RomanNumeralError()
 
-            elif self.roman() is not None:
-                return(ROMAN, self.roman())
+            if self.title() is not None:
+                token = Token(TITLE, self.title())
+                self.advance_line()
+                return token
 
             self.ParseError()
-
         return Token(EOF, None)
 
 
     def eat(self, token_type):
         if self.token.type == token_type:
-            self.get_next_token()
-        else:
-            self.ParseError
+            self.token = self.get_next_token()
+        elif token_type == TITLE:
+            self.MissingTitleError()
+        elif token_type == ACT:
+            self.OrderError()
 
 
     def expr(self):
+        act_list = []
+
         self.token = self.get_next_token()
 
-        Title = self.token
+        Title = self.token.value
         self.eat(TITLE)
 
-        Act = self.token
+        Act = self.token.value
         self.eat(ACT)
+        act_list.append(Act)
+        if act_list != list(range(Act+1)[1:]):
+            self.OrderError()
+        scene_list = []
 
-        Act_num = self.token
-        self.eat(ROMAN)
-
-        Scene = self.token
+        Scene = self.token.value
         self.eat(SCENE)
+        scene_list.append(Scene)
+        if scene_list != list(range(Scene+1)[1:]):
+            self.OrderError()
 
-        Scene_num = self.token
-        self.eat(ROMAN)
+        print('expr works')
+        return Title, Act, Scene
 
 
 def main(file):
     if file == None:
         while True:
             try:
-                text = input('>>> ')
+                _input = []
+                newline = input('>>> ')
+                if newline == 'clear':
+                    _input = []
+                elif newline == 'exit':
+                    sys.exit()
+                else:
+                    _input.append(newline + '\n')
             except EOFError:
                 break
-            interpret = Interpreter(text)
+            if _input != []:
+                interpret = Interpreter(file, _input)
     else:
-        interpret = Interpreter(file)
+        interpret = Interpreter(file, None)
+    result = interpret.expr()
     print('yay')
 
 
@@ -154,49 +198,3 @@ def init():
     main(args.file)
 
 init()
-
-"""
-        text = self.text
-
-        if self.pos >= len(text.readlines()):
-            return Token(EOF, None)
-
-        current_line = text.readlines()[self.pos].replace('\n','')
-
-        if self.pos == 0:
-            token = Token(TITLE, current_line)
-            self.pos+=1
-            return token
-
-        if len(current_line.split(' ')) == 2 and current_line.split(' ')[0] == 'ACT':
-            act_num = current_line.split(' ')[1]
-            try:
-                roman.fromRoman(act_num)
-                token1 = Token(ACT, current_line.split(' ')[0])
-                token2 = Token(ACT_NUM, act_num)
-            except InvalidRomanNumeralError:
-                raise RomanNumeralError
-            self.pos+=1
-            return token1, token2
-
-        if current_line.split(' ', 2)[0] == 'SCENE':
-            scene_num = current_line.split(' ', 2)[1].replace('.','')
-            try:
-                roman.fromRoman(scene_num)
-                token1 = Token(SCENE, current_line.split(' ', 2)[0])
-                token2 = Token(SCENE_NUM, scene_num)
-                token3 = Token(LOCATION, current_line.split(' ', 2)[2])
-            except InvalidRomanNumeralError:
-                raise RomanNumeralError
-            self.pos+=1
-            return token1, token2
-
-        if current_line[0:1] == '\t':
-            token = Token(TEXT, current_line[2:])
-            self.pos+=1
-            return token
-
-        else:
-            token = Token(IGNORED, current_line)
-            self.pos+=1
-"""
