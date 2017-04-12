@@ -1,9 +1,11 @@
-import sys, argparse
+import sys
+import argparse
 import roman
 
 TITLE = 'TITLE'
 ACT, SCENE, ROMAN, LOCATION = 'ACT', 'SCENE', 'ROMAN', 'LOCATION'
-CHARACTER, NUMBER, STRING, OPERATOR = 'CHARACTER', 'NUMBER', 'STRING', 'OPERATOR'
+CHARACTER = 'CHARACTER'
+NUMBER, STRING, OPERATOR = 'NUMBER', 'STRING', 'OPERATOR'
 DIRECTION = 'DIRECTION'
 TEXT = 'TEXT'
 EOF = 'EOF'
@@ -16,18 +18,25 @@ class Token(object):
 
 
 eof_error = {'EOFError': 'File is empty'}
-syntax_errors = {'MissingTitle': 'No title detected', 'ActNumber': 'ACT number is not a valid roman numeral', 'SceneNumber': 'SCENE number is not a valid roman numeral', 'MissingAct': 'Missing ACT', 'ActOrder': 'ACTs not in running order', 'SceneOrder': 'SCENEs not in running order'}
+syntax_errors = {
+    'MissingTitle': 'No title detected',
+    'ActNumber': 'ACT number is not a valid roman numeral',
+    'SceneNumber': 'SCENE number is not a valid roman numeral',
+    'MissingAct': 'Missing ACT',
+    'ActOrder': 'ACTs not in running order',
+    'SceneOrder': 'SCENEs not in running order'
+}
 
 
 class Interpreter(object):
     def __init__(self, file, _input):
-        if file == None:
+        if file is None:
             self.text = _input_
         else:
-            with open(file,'r') as text:
+            with open(file, 'r') as text:
                 self.text = text.readlines()
             if len(self.text) == 0:
-                print ('EOFError: ' + eof_error['EOFError'])
+                print('EOFError: ' + eof_error['EOFError'])
                 sys.exit()
         self.line = 0
         self.column = 0
@@ -63,13 +72,13 @@ class Interpreter(object):
 
     def advance_char(self):
         self.column += 1
-        if self.Line != None and self.column >= len(self.Line):
+        if self.Line is not None and self.column >= len(self.Line):
             self.Char = None
         else:
             self.Char = self.Line[self.column]
 
     def skip_whitespace(self):
-        while self.Char != None and self.Char.isspace():
+        while self.Char is not None and self.Char.isspace():
             self.advance_char()
 
 
@@ -84,7 +93,7 @@ class Interpreter(object):
             for i in range(3):
                 self.advance_char()
             self.skip_whitespace()
-            while self.Char != None:
+            while self.Char is not None:
                 numeral = numeral + self.Char
                 self.advance_char()
         return roman.roman(numeral)
@@ -95,7 +104,7 @@ class Interpreter(object):
             for i in range(5):
                 self.advance_char()
             self.skip_whitespace()
-            while self.Char != None and self.Char != '.':
+            while self.Char is not None and self.Char != '.':
                 numeral = numeral + self.Char
                 self.advance_char()
         return roman.roman(numeral)
@@ -105,9 +114,9 @@ class Interpreter(object):
 
         while self.Line is not None and self.Char is not None:
             if '#' in self.Line:
-                self.Line = self.Line.split('#',1)[0] + '\n'
+                self.Line = self.Line.split('#', 1)[0] + '\n'
 
-            self.Line = self.Line.replace('\n','')
+            self.Line = self.Line.replace('\n', '')
 
             if self.Line.strip() == '':
                 self.advance_line()
@@ -115,8 +124,8 @@ class Interpreter(object):
 
             if self.Line[0:3] == ACT:
                 act = self.act()
-                if act == None:
-                    print ('SyntaxError: ' + syntax_errors['ActNumber'])
+                if act is None:
+                    print('SyntaxError: ' + syntax_errors['ActNumber'])
                     sys.exit()
                 else:
                     token = Token(ACT, act)
@@ -125,8 +134,8 @@ class Interpreter(object):
 
             if self.Line[0:5] == SCENE:
                 scene = self.scene()
-                if scene == None:
-                    print ('SyntaxError: ' + syntax_errors['SceneNumber'])
+                if scene is None:
+                    print('SyntaxError: ' + syntax_errors['SceneNumber'])
                     sys.exit()
                 else:
                     token = Token(SCENE, scene)
@@ -146,10 +155,10 @@ class Interpreter(object):
         if self.token.type == token_type:
             self.token = self.get_next_token()
         elif token_type == TITLE:
-            print ('SyntaxError: ' + syntax_errors['MissingTitle'])
+            print('SyntaxError: ' + syntax_errors['MissingTitle'])
             sys.exit()
         elif token_type == ACT:
-            print ('SyntaxError: ' + syntax_errors['MissingAct'])
+            print('SyntaxError: ' + syntax_errors['MissingAct'])
             sys.exit()
 
     def expr(self):
@@ -164,7 +173,7 @@ class Interpreter(object):
         self.eat(ACT)
         act_list.append(Act)
         if act_list != list(range(Act+1)[1:]):
-            print ('SyntaxError: ' + syntax_errors['ActOrder'])
+            print('SyntaxError: ' + syntax_errors['ActOrder'])
             sys.exit()
         scene_list = []
 
@@ -172,7 +181,7 @@ class Interpreter(object):
         self.eat(SCENE)
         scene_list.append(Scene)
         if scene_list != list(range(Scene+1)[1:]):
-            print ('SyntaxError: ' + syntax_errors['SceneOrder'])
+            print('SyntaxError: ' + syntax_errors['SceneOrder'])
             sys.exit()
 
         print('expr works')
@@ -180,7 +189,7 @@ class Interpreter(object):
 
 
 def main(file):
-    if file == None:
+    if file is None:
         _input_ = []
         while True:
             newline = input('>>> ')
@@ -199,7 +208,7 @@ def main(file):
 
 def init():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--file', type = str, default = None)
+    parser.add_argument('-f', '--file', type=str, default=None)
     args = parser.parse_args()
 
     main(args.file)
